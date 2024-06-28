@@ -3,10 +3,12 @@ chem1030
 comp1021
 comp2011
 comp2012
-comp2111
+comp2211
 comp2633
 elec1200
 huma2202
 math1014
 math2111
 phys1114
+comp2711
+comp2611

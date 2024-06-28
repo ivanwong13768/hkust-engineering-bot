@@ -1,5 +1,4 @@
 import discord, dotenv, os
-from discord.ext import commands
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -8,52 +7,109 @@ dotenv.load_dotenv()
 token = str(os.getenv("TOKEN"))
 
 client = discord.Client(intents=intents)
-bot = commands.Bot()
+bot = discord.Bot()
 
-course_list = open("course_list.txt", "r").readlines()
-course_list = [i.split(' ') for i in course_list]
+f = open("course_list.txt", "a+")
+course_list = f.readlines()
+for i in range(len(course_list)):
+    course_list[i] = course_list[i].strip()
 
-@bot.slash_command(
-    name = "join_course",
-    description = "Join the course channel provided in the argument."
-)
-async def join_course(interaction: discord.Interaction, name: str):
-    for c in name[:4]:
-        if not c.isalpha():
-            await interaction.respond(f"Error: name is invalid")
+course = bot.create_group("course", "Course-related commands")
+study_path = bot.create_group("study_path", "Study path planning commands")
+
+def find_role(name: str, role_list: list[discord.Role]) -> discord.Role:
+    for r in role_list:
+        if r.name == name.lower():
+            return r
+
+@course.command(name = "join", description = "Join an existing course channel")
+async def join_course(ctx: discord.Interaction, name: str):
+    await ctx.response.defer()
+    try:
+        if len(name) != 8:
+            await ctx.respond(f"Error: name is invalid!")
             return
-    for c in name[4:]:
-        if not c.isnumeric():
-            await interaction.respond(f"Error: name is invalid")
-            return
-    formatted_name = name[:4].lower() + "-" + name[4:]
-    await interaction.respond(f"Joined channel {formatted_name}")
+        for c in name[:4]:
+            if not c.isalpha():
+                await ctx.respond(f"Error: name is invalid")
+                return
+        for c in name[4:]:
+            if not c.isnumeric():
+                await ctx.respond(f"Error: name is invalid")
+                return
+        formatted_name = name.upper()
+        server = ctx.guild
+        role_list = server.roles
+        role = find_role(name.lower(), role_list)
+        await ctx.user.add_roles(role)
+        await ctx.followup.send(f"Joined {formatted_name}'s channel.")
+    except Exception as e:
+        await ctx.followup.send("An error has occurred. Please try again!")
+        print(e)
 
-@bot.slash_command(
-    name = "create_course",
-    description = "Create a new course channel."
-)
-async def create_course(interaction: discord.Interaction, name: str):
-    for c in name[:4]:
-        if not c.isalpha():
-            await interaction.respond(f"Error: name is invalid")
+@course.command(name = "create", description = "Create a new course channel")
+async def create_course(ctx: discord.Interaction, name: str):
+    await ctx.response.defer()
+    try:
+        if len(name) != 8:
+            await ctx.respond(f"Error: name is invalid!")
             return
-    for c in name[4:]:
-        if not c.isnumeric():
-            await interaction.respond(f"Error: name is invalid")
+        for c in name[:4]:
+            if not c.isalpha():
+                await ctx.respond(f"Error: name is invalid!")
+                return
+        for c in name[4:]:
+            if not c.isnumeric():
+                await ctx.respond(f"Error: name is invalid!")
+                return
+        if name.lower() in course_list:
+            await ctx.respond(f"Error: channel already exists!")
             return
-    formatted_name = name[:4].lower() + "-" + name[4:]
-    await interaction.respond(f"Created channel {formatted_name}")
+        channel_name = name[:4].lower() + "-" + name[4:]
+        formatted_name = name.upper()
+        server = ctx.guild
+        role_list = server.roles
+        role_names = [r.name for r in role_list]
+        role = None
+        if name.lower() not in role_names:
+            role = await server.create_role(name=name.lower(), mentionable=True)
+        else:
+            role = find_role(name.lower(), role_list)
+        category_list = server.categories
+        category = None
+        for c in category_list:
+            if c.name == str(os.getenv("CATEGORY_NAME")):
+                category = c
+                break
+        if category != None:
+            channel = await server.create_text_channel(name=channel_name, category=category)
+            for r in role_list:
+                await channel.set_permissions(target=r, overwrite=discord.PermissionOverwrite(view_channel=False))
+            await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(view_channel=True))
+            if name.lower() not in course_list:
+                f.write(name.lower() + '\n')
+        await ctx.followup.send(f"Created channel for {formatted_name}.")
+    except Exception as e:
+        await ctx.followup.send("An error has occurred. Please try again!")
+        print(e)
 
-@bot.slash_command(
-    name = "list_course",
-    description = "List currently existing course channels."
-)
-async def list_course(interaction: discord.Interaction):
-    await interaction.respond("List of channels:")
+@course.command(name = "list", description = "List currently existing course channels")
+async def list_course(ctx: discord.Interaction):
+    await ctx.response.defer()
+    msg = "List of course channels:\n"
+    for i in course_list:
+        msg += '*' + i.upper() + '\n'
+    msg.strip()
+    await ctx.followup.send(msg)
 
-@bot.event
+@study_path.command(name = "req", description = "List a major's requirements")
+async def major_req(ctx: discord.Interaction, name: str):
+    await ctx.response.defer()
+    msg = f"{name.upper()}'s major requirements:\n"
+    await ctx.followup.send(msg)
+
+@client.event
 async def on_ready():
-    pass
+    print("bot is now online")
 
 bot.run(token)
