@@ -9,7 +9,7 @@ token = str(os.getenv("TOKEN"))
 client = discord.Client(intents=intents)
 bot = discord.Bot()
 
-f = open("course_list.txt", "a+")
+f = open("course_list.txt", "r+")
 course_list = f.readlines()
 for i in range(len(course_list)):
     course_list[i] = course_list[i].strip()
@@ -77,8 +77,9 @@ async def create_course(ctx: discord.Interaction, name: str):
             role = find_role(name.lower(), role_list)
         category_list = server.categories
         category = None
+        category_name = str(os.getenv("CATEGORY_NAME"))
         for c in category_list:
-            if c.name == str(os.getenv("CATEGORY_NAME")):
+            if c.name == category_name:
                 category = c
                 break
         if category != None:
@@ -88,6 +89,8 @@ async def create_course(ctx: discord.Interaction, name: str):
             await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(view_channel=True))
             if name.lower() not in course_list:
                 f.write(name.lower() + '\n')
+                course_list.append(name.lower())
+                course_list.sort()
         await ctx.followup.send(f"Created channel for {formatted_name}.")
     except Exception as e:
         await ctx.followup.send("An error has occurred. Please try again!")
@@ -97,8 +100,8 @@ async def create_course(ctx: discord.Interaction, name: str):
 async def list_course(ctx: discord.Interaction):
     await ctx.response.defer()
     msg = "List of course channels:\n"
-    for i in course_list:
-        msg += '*' + i.upper() + '\n'
+    for i in sorted(course_list):
+        msg += '* ' + i.upper() + '\n'
     msg.strip()
     await ctx.followup.send(msg)
 
