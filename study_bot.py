@@ -9,10 +9,10 @@ token = str(os.getenv("TOKEN"))
 client = discord.Client(intents=intents)
 bot = discord.Bot()
 
-f = open("course_list.txt", "r+")
-course_list = f.readlines()
-for i in range(len(course_list)):
-    course_list[i] = course_list[i].strip()
+channel_list_file = open("channel_list.txt", "r+")
+channel_list = channel_list_file.readlines()
+for i in range(len(channel_list)):
+    channel_list[i] = channel_list[i].strip()
 
 course = bot.create_group("course", "Course-related commands")
 study_path = bot.create_group("study_path", "Study path planning commands")
@@ -62,7 +62,7 @@ async def create_course(ctx: discord.Interaction, name: str):
             if not c.isnumeric():
                 await ctx.respond(f"Error: name is invalid!")
                 return
-        if name.lower() in course_list:
+        if name.lower() in channel_list:
             await ctx.respond(f"Error: channel already exists!")
             return
         channel_name = name[:4].lower() + "-" + name[4:]
@@ -87,10 +87,10 @@ async def create_course(ctx: discord.Interaction, name: str):
             for r in role_list:
                 await channel.set_permissions(target=r, overwrite=discord.PermissionOverwrite(view_channel=False))
             await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(view_channel=True))
-            if name.lower() not in course_list:
-                f.write(name.lower() + '\n')
-                course_list.append(name.lower())
-                course_list.sort()
+            if name.lower() not in channel_list:
+                channel_list_file.write(name.lower() + '\n')
+                channel_list.append(name.lower())
+                channel_list.sort()
         await ctx.followup.send(f"Created channel for {formatted_name}.")
     except Exception as e:
         await ctx.followup.send("An error has occurred. Please try again!")
@@ -100,7 +100,7 @@ async def create_course(ctx: discord.Interaction, name: str):
 async def list_course(ctx: discord.Interaction):
     await ctx.response.defer()
     msg = "List of course channels:\n"
-    for i in sorted(course_list):
+    for i in sorted(channel_list):
         msg += '* ' + i.upper() + '\n'
     msg.strip()
     await ctx.followup.send(msg)
