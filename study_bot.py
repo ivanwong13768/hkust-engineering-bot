@@ -8,8 +8,10 @@ dotenv.load_dotenv()
 token = str(os.getenv("TOKEN"))
 
 client = discord.Client(intents=intents)
-
 bot = commands.Bot()
+
+course_list = open("course_list.txt", "r").readlines()
+course_list = [i.split(' ') for i in course_list]
 
 @bot.slash_command(
     name = "join_course",
@@ -24,7 +26,7 @@ async def join_course(interaction: discord.Interaction, name: str):
         if not c.isnumeric():
             await interaction.respond(f"Error: name is invalid")
             return
-    formatted_name = name[:4].lower() + "_" + name[4:]
+    formatted_name = name[:4].lower() + "-" + name[4:]
     await interaction.respond(f"Joined channel {formatted_name}")
 
 @bot.slash_command(
@@ -40,7 +42,7 @@ async def create_course(interaction: discord.Interaction, name: str):
         if not c.isnumeric():
             await interaction.respond(f"Error: name is invalid")
             return
-    formatted_name = name[:4].lower() + "_" + name[4:]
+    formatted_name = name[:4].lower() + "-" + name[4:]
     await interaction.respond(f"Created channel {formatted_name}")
 
 @bot.slash_command(
