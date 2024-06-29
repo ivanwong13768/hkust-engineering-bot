@@ -1,4 +1,4 @@
-import discord, dotenv, os
+import discord, dotenv, os, pickle, web_scraper
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -85,8 +85,8 @@ async def create_course(ctx: discord.Interaction, name: str):
         if category != None:
             channel = await server.create_text_channel(name=channel_name, category=category)
             for r in role_list:
-                await channel.set_permissions(target=r, overwrite=discord.PermissionOverwrite(view_channel=False))
-            await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(view_channel=True))
+                await channel.set_permissions(target=r, overwrite=discord.PermissionOverwrite(read_messages=False))
+            await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(read_messages=True))
             if name.lower() not in channel_list:
                 channel_list_file.write(name.lower() + '\n')
                 channel_list.append(name.lower())
@@ -103,6 +103,54 @@ async def list_course(ctx: discord.Interaction):
     for i in sorted(channel_list):
         msg += '* ' + i.upper() + '\n'
     msg.strip()
+    await ctx.followup.send(msg)
+
+@course.command(name = "scrape", description = "Scrape course information for a certain semester (in the format of <20xx-xx season>)")
+async def course_scrape(ctx: discord.Interaction, semester: str):
+    await ctx.response.defer()
+    sem = semester.split(" ")
+    course_list = web_scraper.scrape(sem[0], sem[1])
+    if course_list == None:
+        await ctx.followup.send("Error: semester is invalid!")
+        return
+    if not os.path.exists("course_info"):
+        os.mkdir("course_info")
+    outfile = open(f"course_info/{semester.lower()}.ustcourseinfo", "wb")
+    pickle.dump(course_list, outfile)
+    outfile.close()
+    await ctx.followup.send("Course information updated and saved.")
+
+@course.command(name = "enquire", description = "List a course's details or courses in a subject. Input help for help message.")
+async def course_enquire(ctx: discord.Interaction, name: str, semester: str = None):
+    await ctx.response.defer()
+    state = ""
+    if name.lower() == "help" and semester == None:
+        await ctx.followup.send("List a course's details if course code and semester are provided, or list open courses if subject code and semester are provided. Semester should be in the form of `20xx-xx season`.")
+        return
+    if semester == None:
+        await ctx.followup.send("Error: semester is invalid!")
+        return
+    elif len(name) == 4:
+        state = "subject"
+    elif len(name) == 8:
+        state = "course"
+    else:
+        await ctx.followup.send("Error: course/subject code is invalid!")
+        return
+    sem = semester.split(" ")
+    if len(sem) != 2:
+        await ctx.followup.send("Error: semester is invalid!")
+        return
+    sem[1] = sem[1].lower()
+    course_list = None
+    if not os.path.exists(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo"):
+        await ctx.followup.send("Error: semester does not exist! Consider running `/course scrape` first.")
+        return
+    else:
+        infile = open(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo", "rb")
+        course_list = pickle.load(infile)
+        infile.close()
+    msg = f"Semester found"
     await ctx.followup.send(msg)
 
 @study_path.command(name = "req", description = "List a major's requirements")
