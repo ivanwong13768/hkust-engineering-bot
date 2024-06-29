@@ -22,6 +22,10 @@ def find_role(name: str, role_list: list[discord.Role]) -> discord.Role:
         if r.name == name.lower():
             return r
 
+def get_courses_in_subject(subject: str, course_list: dict):
+    if subject in course_list.keys():
+        return course_list[subject]
+
 @course.command(name = "join", description = "Join an existing course channel")
 async def join_course(ctx: discord.Interaction, name: str):
     await ctx.response.defer()
@@ -51,21 +55,21 @@ async def join_course(ctx: discord.Interaction, name: str):
 async def create_course(ctx: discord.Interaction, name: str):
     await ctx.response.defer()
     try:
-        if len(name) != 8:
+        if len(name) != 8 or len(name) != 9:
             await ctx.respond(f"Error: name is invalid!")
             return
         for c in name[:4]:
             if not c.isalpha():
                 await ctx.respond(f"Error: name is invalid!")
                 return
-        for c in name[4:]:
+        for c in name[4:8]:
             if not c.isnumeric():
                 await ctx.respond(f"Error: name is invalid!")
                 return
         if name.lower() in channel_list:
             await ctx.respond(f"Error: channel already exists!")
             return
-        channel_name = name[:4].lower() + "-" + name[4:]
+        channel_name = name[:4].lower() + "-" + name[4:].lower()
         formatted_name = name.upper()
         server = ctx.guild
         role_list = server.roles
@@ -121,7 +125,7 @@ async def course_scrape(ctx: discord.Interaction, semester: str):
     await ctx.followup.send("Course information updated and saved.")
 
 @course.command(name = "enquire", description = "List a course's details or courses in a subject. Input help for help message.")
-async def course_enquire(ctx: discord.Interaction, name: str, semester: str = None):
+async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
     await ctx.response.defer()
     state = ""
     if name.lower() == "help" and semester == None:
@@ -130,9 +134,9 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str = No
     if semester == None:
         await ctx.followup.send("Error: semester is invalid!")
         return
-    elif len(name) == 4:
+    elif len(name) == 4 and name.upper() in web_scraper.subject_list:
         state = "subject"
-    elif len(name) == 8:
+    elif (len(name) == 8 or len(name) == 9) and name[:4].upper() in web_scraper.subject_list:
         state = "course"
     else:
         await ctx.followup.send("Error: course/subject code is invalid!")
@@ -150,7 +154,42 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str = No
         infile = open(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo", "rb")
         course_list = pickle.load(infile)
         infile.close()
-    msg = f"Semester found"
+    courses: list[dict] = get_courses_in_subject(name[:4].upper(), course_list)
+    msg = ""
+    if state == "course":
+        msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n"
+        details = None
+        for c in courses:
+            if list(c.keys())[0] == name.upper():
+                details = c[name.upper()]
+                break
+        if details == None:
+            await ctx.followup.send("Error: course does not exist!")
+            return
+        msg += f"Description: {details[0]}\n"
+        msg += "Pre-requisites: "
+        if len(details[1]) == 0:
+            msg += "None"
+        else:
+            for i in details[1]:
+                msg += f"{i} "
+        msg += "\nCo-requisites: "
+        if len(details[2]) == 0:
+            msg += "None"
+        else:
+            for i in details[2]:
+                msg += f"{i} "
+        msg += "\nExclusions: "
+        if len(details[3]) == 0:
+            msg += "None"
+        else:
+            for i in details[3]:
+                msg += f"{i} "
+    elif state == "subject":
+        msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n"
+        for c in courses:
+            msg += f"* {list(c.keys())[0]}\n"
+        msg.strip()
     await ctx.followup.send(msg)
 
 @study_path.command(name = "req", description = "List a major's requirements")

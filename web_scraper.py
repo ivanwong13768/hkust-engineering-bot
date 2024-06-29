@@ -23,7 +23,7 @@ def scrape(year: str, season: str):
             num = year_list[i]
             num += (current_year - i[0]) * 40
             break
-    course_list = []
+    course_list = dict()
     for s in subject_list:
         try:
             subject_course_list = []
@@ -50,7 +50,7 @@ def scrape(year: str, season: str):
                     if title[0]["_value"] == "EXCLUSION":
                         exclusion = val[0]["_value"].split(", ")
                 subject_course_list.append({course_name: [desc, pre_req, co_req, exclusion]})
-            course_list.append({s: subject_course_list})
+            course_list.update({s: subject_course_list})
         except Exception:
             continue
     return course_list
