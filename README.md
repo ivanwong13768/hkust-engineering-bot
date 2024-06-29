@@ -9,5 +9,5 @@ Discord bot for HKUST engineering students to plan their studies.
 4. Profit
 
 ## .env format
-TOKEN = `your Discord bot user's API token`
+TOKEN = `your Discord bot user's API token` \
 CATEGORY_NAME = `'the channel category under which you want to put newly created course channels'`
