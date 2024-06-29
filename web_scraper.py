@@ -45,10 +45,19 @@ def scrape(year: str, season: str):
                         desc = val[0]["_value"]
                     if title[0]["_value"] == "PRE-REQUISITE":
                         pre_req = val[0]["_value"].split(", ")
+                        for j in range(len(pre_req)):
+                            if re.match(r"[A-Z]{4} \d{4}[A-Z]{0,1}", pre_req[j]):
+                                pre_req[j] = pre_req[j][:4] + pre_req[j][5:]
                     if title[0]["_value"] == "CO-REQUISITE":
                         co_req = val[0]["_value"].split(", ")
+                        for j in range(len(co_req)):
+                            if re.match(r"[A-Z]{4} \d{4}[A-Z]{0,1}", co_req[j]):
+                                co_req[j] = co_req[j][:4] + co_req[j][5:]
                     if title[0]["_value"] == "EXCLUSION":
                         exclusion = val[0]["_value"].split(", ")
+                        for j in range(len(exclusion)):
+                            if re.match(r"[A-Z]{4} \d{4}[A-Z]{0,1}", exclusion[j]):
+                                exclusion[j] = exclusion[j][:4] + exclusion[j][5:]
                 subject_course_list.append({course_name: [desc, pre_req, co_req, exclusion]})
             course_list.update({s: subject_course_list})
         except Exception:
