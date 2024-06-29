@@ -30,16 +30,16 @@ def get_courses_in_subject(subject: str, course_list: dict):
 async def join_course(ctx: discord.Interaction, name: str):
     await ctx.response.defer()
     try:
-        if len(name) != 8:
+        if len(name) != 8 or len(name) != 9:
             await ctx.respond(f"Error: name is invalid!")
             return
         for c in name[:4]:
             if not c.isalpha():
-                await ctx.respond(f"Error: name is invalid")
+                await ctx.respond(f"Error: name is invalid!")
                 return
-        for c in name[4:]:
+        for c in name[4:8]:
             if not c.isnumeric():
-                await ctx.respond(f"Error: name is invalid")
+                await ctx.respond(f"Error: name is invalid!")
                 return
         formatted_name = name.upper()
         server = ctx.guild
@@ -166,30 +166,34 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
         if details == None:
             await ctx.followup.send("Error: course does not exist!")
             return
-        msg += f"Description: {details[0]}\n"
-        msg += "Pre-requisites: "
+        msg += f"**Description:**\n{details[0]}\n"
+        msg += "**Pre-requisites:**\n"
         if len(details[1]) == 0:
             msg += "None"
         else:
             for i in details[1]:
-                msg += f"{i} "
-        msg += "\nCo-requisites: "
+                msg += f"{i}, "
+            msg = msg[:-2]
+        msg += "\n**Co-requisites:**\n"
         if len(details[2]) == 0:
             msg += "None"
         else:
             for i in details[2]:
-                msg += f"{i} "
-        msg += "\nExclusions: "
+                msg += f"{i}, "
+            msg = msg[:-2]
+        msg += "\n**Exclusions:**\n"
         if len(details[3]) == 0:
             msg += "None"
         else:
             for i in details[3]:
-                msg += f"{i} "
+                msg += f"{i}, "
+            msg = msg[:-2]
     elif state == "subject":
-        msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n"
+        msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n```"
         for c in courses:
-            msg += f"* {list(c.keys())[0]}\n"
+            msg += f"- {list(c.keys())[0]}\n"
         msg.strip()
+        msg += '```'
     await ctx.followup.send(msg)
 
 @study_path.command(name = "req", description = "List a major's requirements")
