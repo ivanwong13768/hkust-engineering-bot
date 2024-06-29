@@ -1,19 +1,26 @@
-import requests, html_to_json, re, pandas as pd
+import requests, html_to_json, re, io, pandas as pd
+from PyPDF2 import PdfReader
 from xml.sax.saxutils import escape
 
 year_list = {(2024, "fall") : 2310, (2024, "winter") : 2320, (2024, "spring") : 2330, (2024, "summer") : 2340}
 seasons = ["fall", "winter", "spring", "summer"]
 subject_list = ["ACCT", "AESF", "BEHI", "BIEN", "BTEC", "CENG", "CHEM", "CIEM", "CIVL", "COMP", "CPEG", "CSIT", "ECON", "EEMT", "EESM", "ELEC", "EMBA", "EMIA", "ENEG", "ENGG", "ENTR", "ENVR", "EVSM", "FINA", "GFIN", "GNED", "HLTH", "HMMA", "HUMA", "IBTM", "IDPO", "IEDA", "IMBA", "ISDN", "ISOM", "JEVE", "LABU", "LANG", "LIFS", "MAED", "MAFS", "MARK", "MASS", "MATH", "MCEE", "MECH", "MESF", "MGCS", "MGMT", "MILE", "MIMT", "MSBD", "MTLE", "OCES", "PDEV", "PHYS", "PPOL", "SBMT", "SHSS", "SOSC", "TEMG", "UROP"]
 
-def scrape(year: str, season: str):
-    # validation rules
+def check_year_valid(year: str) -> bool:
     consecutive_year = (int(year[:2] + year[5:7]) - int(year[:4]) == 1)
     consecutive_year_century_change = (((int(year[:2]) + 1) * 100 + int(year[5:7]) - int(year[:4])) == 1)
     if not (consecutive_year or consecutive_year_century_change) or re.match(r"\d{4}-\d{2}", year) == None:
-        print("Error: year does not exist")
+        return False
+    else:
+        return True
+
+def scrape_courses(year: str, season: str):
+    # validation rules
+    if check_year_valid(year) == False:
+        print("Error: year does not exist!")
         return None
     if season.lower() not in seasons:
-        print("Error: season does not exist")
+        print("Error: season does not exist!")
         return None
     current_year = int(year[:4]) + 1
     current_season = season.lower()
@@ -67,3 +74,40 @@ def scrape(year: str, season: str):
 # structure of course_list (dict type):
 # access course_list with short form of subject to get list of courses of that subject
 # access list with course code to get a list of [description, pre-requisite, co-requisite, exclusion]
+
+def scrape_programs(year: str):
+    if check_year_valid(year) == False:
+        print("Error: year does not exist!")
+        return None
+    res = requests.get(f"https://prog-crs.hkust.edu.hk/ugprog/{year}")
+    res_json = html_to_json.convert(escape(res.text))
+    res_json = html_to_json.convert(res_json["_value"])["html"][0]["body"][0]["div"][3]["div"][0]["div"][1]["div"][1:]
+    program_list = {}
+    for group in res_json:
+        school = group["div"][0]["_value"]
+        majors = group["ul"][0]["li"]
+        program_list.update({school : [m["a"][0]["div"][1]["_value"] for m in majors]})
+    program_req = {}
+    for s in program_list.values():
+        for program in s:
+            r = None
+            try:
+                p = program.lower()
+                if p == "sreq-ssci":
+                    p = "ssci_requirements"
+                elif p == "sreq-sbm":
+                    p = "sbm_requirements"
+                r = requests.get(f"https://ugadmin.hkust.edu.hk/prog_crs/ug/{year[0:4] + year[5:7]}/pdf/{year[2:7]}{p}.pdf")
+                on_fly_mem_obj = io.BytesIO(r.content)
+                pdf_file = PdfReader(on_fly_mem_obj)
+                requirements = []
+                for page in pdf_file.pages:
+                    t = page.extract_text().split('\n')
+                    requirements.append([line for line in t if re.search(r"[A-Z]{4} \d{4}[A-Z]{0,1}", line) != None])
+                requirements_dict = {p : [r for req in requirements for r in req]}
+                program_req.update(requirements_dict)
+            except Exception:
+                # print("Exception occurred when scraping programs.")
+                pass
+
+    return program_list, program_req

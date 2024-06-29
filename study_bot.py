@@ -103,17 +103,18 @@ async def create_course(ctx: discord.Interaction, name: str):
 @course.command(name = "list", description = "List currently existing course channels")
 async def list_course(ctx: discord.Interaction):
     await ctx.response.defer()
-    msg = "List of course channels:\n"
+    msg = "List of course channels:\n```"
     for i in sorted(channel_list):
-        msg += '* ' + i.upper() + '\n'
+        msg += '- ' + i.upper() + '\n'
     msg.strip()
+    msg += '```'
     await ctx.followup.send(msg)
 
 @course.command(name = "scrape", description = "Scrape course information for a certain semester (in the format of <20xx-xx season>)")
 async def course_scrape(ctx: discord.Interaction, semester: str):
     await ctx.response.defer()
     sem = semester.split(" ")
-    course_list = web_scraper.scrape(sem[0], sem[1])
+    course_list = web_scraper.scrape_courses(sem[0], sem[1])
     if course_list == None:
         await ctx.followup.send("Error: semester is invalid!")
         return
@@ -122,7 +123,7 @@ async def course_scrape(ctx: discord.Interaction, semester: str):
     outfile = open(f"course_info/{semester.lower()}.ustcourseinfo", "wb")
     pickle.dump(course_list, outfile)
     outfile.close()
-    await ctx.followup.send("Course information updated and saved.")
+    await ctx.followup.send(f"Course information of {semester} updated and saved.")
 
 @course.command(name = "enquire", description = "List a course's details or courses in a subject. Input help for help message.")
 async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
@@ -196,10 +197,30 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
         msg += '```'
     await ctx.followup.send(msg)
 
-@study_path.command(name = "req", description = "List a major's requirements")
-async def major_req(ctx: discord.Interaction, name: str):
+@study_path.command(name = "scrape", description = "Scrape program information for a certain academic year (in the format of <20xx-xx>)")
+async def course_scrape(ctx: discord.Interaction, year: str):
     await ctx.response.defer()
-    msg = f"{name.upper()}'s major requirements:\n"
+    program_list, program_req = web_scraper.scrape_programs(year)
+    if program_list == None:
+        await ctx.followup.send("Error: year is invalid!")
+        return
+    if not os.path.exists("program_info"):
+        os.mkdir("program_info")
+    outfile = open(f"program_info/{year}.ustprogramlist", "wb")
+    pickle.dump(program_list, outfile)
+    outfile.close()
+    if program_req == None:
+        await ctx.followup.send("An error has occurred while scraping program requirements. Please try again later.\nIf this error continues, please contact the bot owner.")
+        return
+    outfile = open(f"program_info/{year}.ustprogramreq", "wb")
+    pickle.dump(program_req, outfile)
+    outfile.close()
+    await ctx.followup.send(f"Program information of {year} updated and saved.")
+
+@study_path.command(name = "req", description = "List a program's requirements")
+async def program_req(ctx: discord.Interaction, name: str):
+    await ctx.response.defer()
+    msg = f"{name.upper()}'s program requirements:\n"
     await ctx.followup.send(msg)
 
 @client.event
