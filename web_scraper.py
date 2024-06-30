@@ -1,5 +1,4 @@
-import requests, html_to_json, re, io, pandas as pd
-from PyPDF2 import PdfReader
+import requests, html_to_json, re, io, pandas as pd, pymupdf
 from xml.sax.saxutils import escape
 
 year_list = {(2024, "fall") : 2310, (2024, "winter") : 2320, (2024, "spring") : 2330, (2024, "summer") : 2340}
@@ -99,15 +98,14 @@ def scrape_programs(year: str):
                     p = "sbm_requirements"
                 r = requests.get(f"https://ugadmin.hkust.edu.hk/prog_crs/ug/{year[0:4] + year[5:7]}/pdf/{year[2:7]}{p}.pdf")
                 on_fly_mem_obj = io.BytesIO(r.content)
-                pdf_file = PdfReader(on_fly_mem_obj)
+                pdf_file = pymupdf.open(stream=on_fly_mem_obj, filetype="pdf")
                 requirements = []
-                for page in pdf_file.pages:
-                    t = page.extract_text().split('\n')
-                    requirements.append([line for line in t if re.search(r"[A-Z]{4} \d{4}[A-Z]{0,1}", line) != None])
+                for page in pdf_file:
+                    t = page.get_text("text").split('\n')
+                    requirements.append([line for line in t if (0 < (len(line.split(' ')) <= 10) and (re.search(r"[A-Za-z]{5,6} Requirements", line) == None) and (re.search(r"(\d{4}-\d{2} intake)", line) == None) and (re.search(r"Page \d", line) == None))])
                 requirements_dict = {p : [r for req in requirements for r in req]}
                 program_req.update(requirements_dict)
-            except Exception:
-                # print("Exception occurred when scraping programs.")
-                pass
+            except Exception as e:
+                print(f"Exception '{e}' occurred when scraping programs.")
 
     return program_list, program_req
