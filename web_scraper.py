@@ -32,7 +32,7 @@ def scrape_courses(year: str, season: str):
     course_list = dict()
     for s in subject_list:
         try:
-            subject_course_list = []
+            subject_course_list = {}
             res = requests.get(f"https://w5.ab.ust.hk/wcq/cgi-bin/{str(num)}/subject/{s}")
             res_json = html_to_json.convert(escape(res.text))
             res_json = html_to_json.convert(res_json["_value"])["html"][0]["body"][0]["div"][2]["div"]  # extract html of each course
@@ -64,15 +64,15 @@ def scrape_courses(year: str, season: str):
                         for j in range(len(exclusion)):
                             if re.match(r"[A-Z]{4} \d{4}[A-Z]{0,1}", exclusion[j]):
                                 exclusion[j] = exclusion[j][:4] + exclusion[j][5:]
-                subject_course_list.append({course_name: [desc, pre_req, co_req, exclusion]})
+                subject_course_list.update({course_name: [desc, pre_req, co_req, exclusion]})
             course_list.update({s: subject_course_list})
         except Exception:
             continue
     return course_list
 
 # structure of course_list (dict type):
-# access course_list with short form of subject to get list of courses of that subject
-# access list with course code to get a list of [description, pre-requisite, co-requisite, exclusion]
+# access course_list with short form of subject to get dict of courses
+# access dict of courses with course code to get a list of [description, pre-requisite, co-requisite, exclusion]
 
 def scrape_programs(year: str):
     if check_year_valid(year) == False:
@@ -102,7 +102,9 @@ def scrape_programs(year: str):
                 requirements = []
                 for page in pdf_file:
                     t = page.get_text("text").split('\n')
-                    requirements.append([line for line in t if (0 < (len(line.split(' ')) <= 10) and (re.search(r"[A-Za-z]{5,6} Requirements", line) == None) and (re.search(r"(\d{4}-\d{2} intake)", line) == None) and (re.search(r"Page \d", line) == None))])
+                    # requirements.append([line for line in t if (0 < (len(line.split(' ')) <= 10) and (re.search(r"[A-Za-z]{5,6} Requirements", line) == None) and (re.search(r"(\d{4}-\d{2} intake)", line) == None) and (re.search(r"Page \d", line) == None) and ("4-year" not in line))])
+                    for l in range(len(t)):
+                        requirements.append()
                 requirements_dict = {p : [r for req in requirements for r in req]}
                 program_req.update(requirements_dict)
             except Exception as e:

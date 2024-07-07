@@ -1,4 +1,4 @@
-import discord, dotenv, os, pickle, web_scraper
+import discord, dotenv, os, pickle, web_scraper, re
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -22,9 +22,38 @@ def find_role(name: str, role_list: list[discord.Role]) -> discord.Role:
         if r.name == name.lower():
             return r
 
-def get_courses_in_subject(subject: str, course_list: dict):
+def get_courses_in_subject(subject: str, course_list: dict) -> dict | None:
     if subject in course_list.keys():
         return course_list[subject]
+    else:
+        return None
+    
+def get_course(course: str, course_list: dict) -> list | None:
+    c = get_courses_in_subject(course[:4].upper(), course_list)
+    if c == None:
+        return None
+    elif course in c.keys():
+        return c[course]
+    else:
+        return None
+    
+def reverse_search_course(course: str, option: str, course_list: dict) -> set:
+    course = course.upper()
+    found_courses = set()
+    state = 1
+    if option == "pre-req":
+        state = 1
+    elif option == "co-req":
+        state = 2
+    elif option == "exclusion":
+        state = 3
+    for subject in course_list:
+        for c in course_list[subject]:
+            req = course_list[subject][c][state]
+            for r in req:
+                if re.search(f"{course[:4]} {course[4:]}", r) or re.search(course, r):
+                    found_courses.add(c)
+    return found_courses
 
 @course.command(name = "join", description = "Join an existing course channel")
 async def join_course(ctx: discord.Interaction, name: str):
@@ -125,7 +154,7 @@ async def course_scrape(ctx: discord.Interaction, semester: str):
     outfile.close()
     await ctx.followup.send(f"Course information of {semester} updated and saved.")
 
-@course.command(name = "enquire", description = "List a course's details or courses in a subject. Input help for help message.")
+@study_path.command(name = "enquire", description = "List a course's details or courses in a subject. Input help for help message.")
 async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
     await ctx.response.defer()
     state = ""
@@ -142,6 +171,7 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
     else:
         await ctx.followup.send("Error: course/subject code is invalid!")
         return
+    
     sem = semester.split(" ")
     if len(sem) != 2:
         await ctx.followup.send("Error: semester is invalid!")
@@ -155,14 +185,15 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
         infile = open(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo", "rb")
         course_list = pickle.load(infile)
         infile.close()
-    courses: list[dict] = get_courses_in_subject(name[:4].upper(), course_list)
+    
+    courses: dict = get_courses_in_subject(name[:4].upper(), course_list)
     msg = ""
     if state == "course":
         msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n"
         details = None
         for c in courses:
-            if list(c.keys())[0] == name.upper():
-                details = c[name.upper()]
+            if c == name.upper():
+                details = courses[name.upper()]
                 break
         if details == None:
             await ctx.followup.send("Error: course does not exist!")
@@ -192,9 +223,38 @@ async def course_enquire(ctx: discord.Interaction, name: str, semester: str):
     elif state == "subject":
         msg = f"{name.upper()} in {sem[0]} {sem[1]}:\n```"
         for c in courses:
-            msg += f"- {list(c.keys())[0]}\n"
+            msg += f"- {c}\n"
         msg.strip()
         msg += '```'
+    await ctx.followup.send(msg)
+
+@study_path.command(name = "rev_search", description = "Search if the enquired course is other courses' pre-requisite, co-requisite or exclusion.")
+async def search(ctx: discord.Interaction, name: str, option: discord.Option(str, choices=["pre-req", "co-req", "exclusion"]), year: str):
+    await ctx.response.defer()
+    name = name.upper()
+    choice = {"pre-req": "pre-requisite", "co-req": "co-requisite", "exclusion": "exclusion"}
+    msg = f"Courses that has {name} as its {choice[option]}:\n```\n"
+    res = set()
+    for season in ["fall", "winter", "spring", "summer"]:
+        sem = [year, season]
+        if len(sem) != 2:
+            await ctx.followup.send("Error: semester is invalid!")
+            return
+        sem[1] = sem[1].lower()
+        course_list = None
+        if not os.path.exists(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo"):
+            await ctx.followup.send("Error: semester does not exist! Consider running `/course scrape` first.")
+            return
+        else:
+            infile = open(f"course_info/{sem[0]} {sem[1]}.ustcourseinfo", "rb")
+            course_list = pickle.load(infile)
+            infile.close()
+        season_res = reverse_search_course(name, option, course_list)
+        for r in season_res:
+            res.add(r)
+    for i in sorted(res):
+        msg += f"- {i}\n"
+    msg += '```'
     await ctx.followup.send(msg)
 
 @study_path.command(name = "scrape", description = "Scrape program information for a certain academic year (in the format of <20xx-xx>)")
