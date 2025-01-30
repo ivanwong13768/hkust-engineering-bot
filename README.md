@@ -1,5 +1,5 @@
 # hkust-engineering-bot
-## NOTE: THIS IS A WORK-IN-PROGRESS BOT!
+## NOTE: The web scraping part of the bot is broken due to course info web UI change.
 Discord bot for HKUST engineering students to plan their studies.
 
 ## Usage
